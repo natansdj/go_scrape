@@ -1,0 +1,57 @@
+core:
+  enabled: true # enable httpd server
+  address: "" # ip address to bind (default: any)
+  shutdown_timeout: 30 # default is 30 second
+  port: "8088" # ignore this port number if auto_tls is enabled (listen 443).
+  worker_num: 0 # default worker number is runtime.NumCPU()
+  queue_num: 0 # default queue number is 8192
+  max_notification: 100
+  sync: false # set true if you need get error message from fail push notification in API response.
+  feedback_hook_url: "" # set webhook url if you need get error message asynchronously from fail push notification in API response.
+  feedback_timeout: 10 # default is 10 second
+  mode: "release"
+  ssl: false
+  cert_path: "cert.pem"
+  key_path: "key.pem"
+  cert_base64: ""
+  key_base64: ""
+  http_proxy: ""
+  pid:
+    enabled: false
+    path: "go_scrape.pid"
+    override: true
+  auto_tls:
+    enabled: false # Automatically install TLS certificates from Let's Encrypt.
+    folder: ".cache" # folder for storing TLS certificates
+    host: "" # which domains the Let's Encrypt will attempt
+
+api:
+  push_uri: "/api/push"
+  stat_go_uri: "/api/stat/go"
+  stat_app_uri: "/api/stat/app"
+  config_uri: "/api/config"
+  sys_stat_uri: "/sys/stats"
+  metric_uri: "/metrics"
+  health_uri: "/healthz"
+
+queue:
+  engine: "local" # support "local", "nsq", default value is "local"
+  nsq:
+    addr: 127.0.0.1:4150
+    topic: go_scrape
+    channel: ch
+
+log:
+  format: "string" # string or json
+  access_log: "stdout" # stdout: output to console, or define log path like "log/access_log"
+  access_level: "debug"
+  error_log: "stderr" # stderr: output to console, or define log path like "log/error_log"
+  error_level: "error"
+  hide_token: true
+
+stat:
+  engine: "memory" # support memory, redis
+  redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0

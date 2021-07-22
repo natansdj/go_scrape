@@ -1,0 +1,6 @@
+.idea
+./go_scrape
+bin/go_scrape
+config.yaml
+vendor
+

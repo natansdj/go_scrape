@@ -1,0 +1,72 @@
+version: '3.5'
+
+services:
+  # Uncomment the following lines to test with Caddy as reverse proxy:
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - goscrape
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/development/caddy:/data/caddy/pki/authorities/local
+      - ./docker/development/caddy/Caddyfile:/etc/caddy/Caddyfile
+
+  goscrape:
+    build: .
+    image: goscrape
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    depends_on:
+      - goscrape-db
+    ports:
+      - "2342:2342" # Web Server (PhotoPrism)
+      - "2343:2343" # Acceptance Tests
+    volumes:
+      - ".:/go/src/github.com/natan_sdj/photoprism"
+      - "go-mod:/go/pkg/mod"
+    shm_size: "2gb"
+    environment:
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+      TF_CPP_MIN_LOG_LEVEL: 0 # Show TensorFlow log messages for development
+      GOSCRAPE_SITE_URL: "http://localhost:2342/"
+      GOSCRAPE_DEBUG: "true"
+      GOSCRAPE_READONLY: "false"
+      GOSCRAPE_PUBLIC: "true"
+      GOSCRAPE_EXPERIMENTAL: "true"
+      GOSCRAPE_SERVER_MODE: "debug"
+      GOSCRAPE_HTTP_HOST: "0.0.0.0"
+      GOSCRAPE_HTTP_PORT: 2342
+      GOSCRAPE_HTTP_COMPRESSION: "gzip"     # Improves transfer speed and bandwidth utilization (none or gzip)
+      GOSCRAPE_DATABASE_DRIVER: "mysql"
+      GOSCRAPE_DATABASE_SERVER: "goscrape-db:4001"
+      GOSCRAPE_DATABASE_NAME: "goscrape"
+      GOSCRAPE_DATABASE_USER: "root"
+      GOSCRAPE_DATABASE_PASSWORD: "goscrape"
+      GOSCRAPE_TEST_DRIVER: "sqlite"
+      GOSCRAPE_TEST_DSN: ".test.db"
+      GOSCRAPE_ADMIN_PASSWORD: "goscrape" # The initial admin password (min 4 characters)
+      GOSCRAPE_ASSETS_PATH: "/go/src/github.com/photoprism/photoprism/assets"
+      GOSCRAPE_STORAGE_PATH: "/go/src/github.com/photoprism/photoprism/storage"
+  goscrape-db:
+    image: mariadb:10.5
+    command: mysqld --port=4001 --transaction-isolation=READ-COMMITTED --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=512 --innodb-rollback-on-timeout=OFF --innodb-lock-wait-timeout=50
+    expose:
+      - "4001"
+    ports:
+      - "4001:4001" # MySQL (for tests)
+    volumes:
+      - "./scripts/reset-test-db.sql:/docker-entrypoint-initdb.d/reset-test-db.sql"
+    environment:
+      MYSQL_ROOT_PASSWORD: goscrape
+      MYSQL_USER: goscrape
+      MYSQL_PASSWORD: goscrape
+      MYSQL_DATABASE: goscrape
+
+volumes:
+  go-mod:
+    driver: local
