@@ -109,6 +109,9 @@ func main() {
 		logx.LogError.Fatal(err)
 	}
 
+	// Initialize Client
+	config.InitClient(cfg)
+
 	var w queue.Worker
 	switch core.Queue(cfg.Queue.Engine) {
 	case core.LocalQueue:
@@ -138,25 +141,26 @@ func main() {
 			logx.LogError.Fatal("can't close the storage connection: ", err.Error())
 		}
 	})
-	var g errgroup.Group
 
-	// Run httpd server
-	g.Go(func() error {
-		return router.RunHTTPServer(ctx, cfg, q)
-	})
+	defer func() {
+		var g errgroup.Group
+		// Run httpd server
+		g.Go(func() error {
+			return router.RunHTTPServer(ctx, cfg, q)
+		})
 
-	// check job completely
-	g.Go(func() error {
-		select {
-		case <-finished:
+		// check job completely
+		g.Go(func() error {
+			select {
+			case <-finished:
+			}
+			return nil
+		})
+
+		if err = g.Wait(); err != nil {
+			logx.LogError.Fatal(err)
 		}
-		return nil
-	})
-
-	if err = g.Wait(); err != nil {
-		logx.LogError.Fatal(err)
-	}
-
+	}()
 }
 
 // Version control.

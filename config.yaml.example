@@ -3,13 +3,13 @@ core:
   address: "" # ip address to bind (default: any)
   shutdown_timeout: 30 # default is 30 second
   port: "8088" # ignore this port number if auto_tls is enabled (listen 443).
-  worker_num: 0 # default worker number is runtime.NumCPU()
+  worker_num: 2 # default worker number is runtime.NumCPU()
   queue_num: 0 # default queue number is 8192
   max_notification: 100
   sync: false # set true if you need get error message from fail push notification in API response.
   feedback_hook_url: "" # set webhook url if you need get error message asynchronously from fail push notification in API response.
   feedback_timeout: 10 # default is 10 second
-  mode: "release"
+  mode: "debug"
   ssl: false
   cert_path: "cert.pem"
   key_path: "key.pem"
@@ -34,6 +34,17 @@ api:
   metric_uri: "/metrics"
   health_uri: "/healthz"
 
+source:
+  base_uri: "https://www.indopremier.com/programer_script/"
+  ctx_timeout: 0
+  ctx_keepalive: 0
+  max_idle_cons_per_host: 0
+  max_idle_con: 0
+  idle_con_timeout: 0
+  tls_handshake_timeout: 0
+  expect_continue_timeout: 0
+  http_timeout: 0
+
 queue:
   engine: "local" # support "local", "nsq", default value is "local"
   nsq:
@@ -43,9 +54,9 @@ queue:
 
 log:
   format: "string" # string or json
-  access_log: "stdout" # stdout: output to console, or define log path like "log/access_log"
+  access_log: "stdout" # stdout: output to console, or define log path like "logx/log/access.log"
   access_level: "debug"
-  error_log: "stderr" # stderr: output to console, or define log path like "log/error_log"
+  error_log: "stderr" # stderr: output to console, or define log path like "logx/log/error.log"
   error_level: "error"
   hide_token: true
 

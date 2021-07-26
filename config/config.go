@@ -14,11 +14,12 @@ import (
 
 // ConfYaml is config structure.
 type ConfYaml struct {
-	Core  SectionCore  `yaml:"core"`
-	API   SectionAPI   `yaml:"api"`
-	Log   SectionLog   `yaml:"log"`
-	Queue SectionQueue `yaml:"queue"`
-	Stat  SectionStat  `yaml:"stat"`
+	Core   SectionCore  `yaml:"core"`
+	API    SectionAPI   `yaml:"api"`
+	Source SourceAPI    `yaml:"source"`
+	Log    SectionLog   `yaml:"log"`
+	Queue  SectionQueue `yaml:"queue"`
+	Stat   SectionStat  `yaml:"stat"`
 }
 
 // SectionCore is sub section of config.
@@ -53,6 +54,19 @@ type SectionAPI struct {
 	SysStatURI string `yaml:"sys_stat_uri"`
 	MetricURI  string `yaml:"metric_uri"`
 	HealthURI  string `yaml:"health_uri"`
+}
+
+// SourceAPI
+type SourceAPI struct {
+	BaseURI               string `yaml:"base_uri"`
+	CtxTimeout            int    `yaml:"ctx_timeout"`
+	CtxKeepAlive          int    `yaml:"ctx_keepalive"`
+	MaxIdleConnsPerHost   int    `yaml:"max_idle_cons_per_host"`
+	MaxIdleConns          int    `yaml:"max_idle_con"`
+	IdleConnTimeout       int    `yaml:"idle_con_timeout"`
+	TLSHandshakeTimeout   int    `yaml:"tls_handshake_timeout"`
+	ExpectContinueTimeout int    `yaml:"expect_continue_timeout"`
+	HttpTimeout           int    `yaml:"http_timeout"`
 }
 
 // SectionLog is sub section of config.
@@ -173,6 +187,17 @@ func LoadConf(confPath ...string) (ConfYaml, error) {
 	conf.API.SysStatURI = viper.GetString("api.sys_stat_uri")
 	conf.API.MetricURI = viper.GetString("api.metric_uri")
 	conf.API.HealthURI = viper.GetString("api.health_uri")
+
+	// Source
+	conf.Source.BaseURI = viper.GetString("source.base_uri")
+	conf.Source.CtxTimeout = viper.GetInt("source.ctx_timeout")
+	conf.Source.CtxKeepAlive = viper.GetInt("source.ctx_keepalive")
+	conf.Source.MaxIdleConnsPerHost = viper.GetInt("source.max_idle_cons_per_host")
+	conf.Source.MaxIdleConns = viper.GetInt("source.max_idle_con")
+	conf.Source.IdleConnTimeout = viper.GetInt("source.idle_con_timeout")
+	conf.Source.TLSHandshakeTimeout = viper.GetInt("source.tls_handshake_timeout")
+	conf.Source.ExpectContinueTimeout = viper.GetInt("source.expect_continue_timeout")
+	conf.Source.HttpTimeout = viper.GetInt("source.http_timeout")
 
 	// log
 	conf.Log.Format = viper.GetString("log.format")

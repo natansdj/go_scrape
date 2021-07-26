@@ -3,10 +3,13 @@ package router
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/natansdj/go_scrape/metric"
 	"github.com/natansdj/go_scrape/status"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 
@@ -291,5 +294,108 @@ func routerEngine(cfg config.ConfYaml, q *queue.Queue) *gin.Engine {
 	r.GET("/version", versionHandler)
 	r.GET("/", rootHandler)
 
+	r.GET("/scrape/1", scrapeOneHandler(cfg))
+
 	return r
+}
+
+func scrapeOneHandler(cfg config.ConfYaml) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		baseUri := cfg.Source.BaseURI
+
+		form := url.Values{}
+		form.Add("firstopen", "yes")
+		form.Add("aumlowervalue", "500")
+		form.Add("aumlowercheck", "yes")
+		form.Add("aumbetweenlowvalue", "500")
+		form.Add("aumbetweenhighvalue", "2000")
+		form.Add("aumbetweencheck", "yes")
+		form.Add("aumgreatervalue", "2000")
+		form.Add("aumgreatercheck", "yes")
+		form.Add("availibility", "available")
+		form.Add("fundtype", "mm,fi,balance,equity")
+		form.Add("hiloselect", "1yr")
+		form.Add("performancetype", "nav")
+		form.Add("fundnonsyariah", "yes")
+		form.Add("fundsyariah", "yes")
+		form.Add("etfnonsyariah", "yes")
+		form.Add("etfsyariah", "yes")
+
+		req, _ := RequestInit(cfg, "GET", "source_json_for_favorite.php", nil, form)
+		body, err := RequestDo(req)
+		if err != nil {
+			logx.LogError.Error(err.Error())
+			panic(err)
+		}
+
+		j := NewJSONReader(body)
+		var i gin.H
+		dec := json.NewDecoder(j)
+		err = dec.Decode(&i)
+		if err != nil {
+			logx.LogError.Error(err.Error())
+			panic(err.Error())
+		} else {
+			fmt.Println(fmt.Sprintf("\nType : %T", i["aaData"]))
+
+			//list of funds
+			if aaData, ok := i["aaData"].([]interface{}); ok {
+				fmt.Println(fmt.Sprintf("Len : %v", len(aaData)))
+				for k, aDtRaw := range aaData {
+					fmt.Println(fmt.Sprintf("%v, %T", aaData[k], aaData[k]))
+
+					//Process each fund
+					if aDtVal, ok2 := aDtRaw.([]interface{}); ok2 {
+						for l := range aDtVal {
+							switch l {
+							case 0: //id
+							case 1: //id
+							case 2: //name
+							case 3: //manager
+							case 4: //type
+							case 5: //last_nav
+							case 6: //1d
+							case 7: //3d
+							case 8: //1m
+							case 9: //3m
+							case 10: //6m
+							case 11: //9m
+							case 12: //ytd
+							case 13: //1yr
+							case 14: //3yr
+							case 15: //5yr
+							case 16: //hi-lo
+							case 17: //sharpe
+							case 18: //drawdown
+							case 19: //dd_periode
+							case 20: //
+							case 21: //
+							case 22: //hist_risk
+							case 23: //aum
+							case 24: //
+							case 25: //
+							case 26: //
+							case 27: //
+							case 28: //
+							case 29: //
+							case 30: //
+							case 31: //
+							}
+							fmt.Println(fmt.Sprintf("%v, %T", aDtVal[l], aDtVal[l]))
+						}
+					}
+					break
+				}
+			}
+			fmt.Println("")
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"source":  "https://www.indopremier.com/programer_script/source_json_for_favorite.php?firstopen=yes&aumlowervalue=500&aumlowercheck=yes&aumbetweenlowvalue=500&aumbetweenhighvalue=2000&aumbetweencheck=yes&aumgreatervalue=2000&aumgreatercheck=yes&availibility=available&fundtype=mm,fi,balance,equity,&hiloselect=1yr&performancetype=nav&fundnonsyariah=yes&fundsyariah=yes&etfnonsyariah=yes&etfsyariah=yes",
+			"version": GetVersion(),
+			"baseUri": baseUri,
+			"result":  i,
+		})
+	}
 }
