@@ -26,7 +26,7 @@ type App struct {
 
 // InitAppStatus for initialize app status
 func InitAppStatus(conf config.ConfYaml) error {
-	logx.LogAccess.Info("Init App Status Engine as ", conf.Stat.Engine)
+	defer logx.LogAccess.Info("Init App Status Engine as ", conf.Stat.Engine)
 	switch conf.Stat.Engine {
 	case "redis":
 		StatStorage = redis.New(conf)

@@ -71,7 +71,7 @@ func RequestDo(req *http.Request, args ...interface{}) (body []byte, err error) 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	res, err := config.DdcNetClient.Do(req.WithContext(ctx))
+	res, err := config.ScrNetClient.Do(req.WithContext(ctx))
 	if err != nil {
 		logx.LogError.Error(methodName, err)
 		return nil, err

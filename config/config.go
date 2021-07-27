@@ -3,9 +3,8 @@ package config
 import (
 	"bytes"
 	"errors"
-	"fmt"
+	"github.com/natansdj/go_scrape/logx"
 	"io/ioutil"
-	"log"
 	"runtime"
 	"strings"
 
@@ -17,6 +16,7 @@ type ConfYaml struct {
 	Core   SectionCore  `yaml:"core"`
 	API    SectionAPI   `yaml:"api"`
 	Source SourceAPI    `yaml:"source"`
+	DB     DatabaseAPI  `yaml:"database"`
 	Log    SectionLog   `yaml:"log"`
 	Queue  SectionQueue `yaml:"queue"`
 	Stat   SectionStat  `yaml:"stat"`
@@ -67,6 +67,18 @@ type SourceAPI struct {
 	TLSHandshakeTimeout   int    `yaml:"tls_handshake_timeout"`
 	ExpectContinueTimeout int    `yaml:"expect_continue_timeout"`
 	HttpTimeout           int    `yaml:"http_timeout"`
+}
+
+// DatabaseAPI
+type DatabaseAPI struct {
+	Host     string `yaml:"db_host"`
+	Port     string `yaml:"db_port"`
+	User     string `yaml:"db_user"`
+	Password string `yaml:"db_password"`
+	Name     string `yaml:"db_name"`
+	Charset  string `yaml:"db_charset"`
+	Prefix   string `yaml:"db_prefix"`
+	Timezone string `yaml:"db_timezone"`
 }
 
 // SectionLog is sub section of config.
@@ -146,10 +158,10 @@ func LoadConf(confPath ...string) (ConfYaml, error) {
 
 		// If a config file is found, read it in.
 		if err := viper.ReadInConfig(); err == nil {
-			fmt.Println("Using config file:", viper.ConfigFileUsed())
+			defer logx.LogAccess.Info("Using config file:", viper.ConfigFileUsed())
 		} else {
 			errMsg := "config file not found! "
-			log.Fatal(errMsg)
+			logx.LogError.Fatal(errMsg)
 			return conf, errors.New(errMsg)
 		}
 	}
@@ -198,6 +210,16 @@ func LoadConf(confPath ...string) (ConfYaml, error) {
 	conf.Source.TLSHandshakeTimeout = viper.GetInt("source.tls_handshake_timeout")
 	conf.Source.ExpectContinueTimeout = viper.GetInt("source.expect_continue_timeout")
 	conf.Source.HttpTimeout = viper.GetInt("source.http_timeout")
+
+	// Database
+	conf.DB.Host = viper.GetString("database.db_host")
+	conf.DB.Port = viper.GetString("database.db_port")
+	conf.DB.User = viper.GetString("database.db_user")
+	conf.DB.Password = viper.GetString("database.db_password")
+	conf.DB.Name = viper.GetString("database.db_name")
+	conf.DB.Charset = viper.GetString("database.db_charset")
+	conf.DB.Prefix = viper.GetString("database.db_prefix")
+	conf.DB.Timezone = viper.GetString("database.db_timezone")
 
 	// log
 	conf.Log.Format = viper.GetString("log.format")

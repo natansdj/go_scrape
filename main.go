@@ -7,6 +7,7 @@ import (
 	"github.com/natansdj/go_scrape/config"
 	"github.com/natansdj/go_scrape/core"
 	"github.com/natansdj/go_scrape/logx"
+	"github.com/natansdj/go_scrape/models"
 	"github.com/natansdj/go_scrape/queue"
 	"github.com/natansdj/go_scrape/queue/simple"
 	"github.com/natansdj/go_scrape/router"
@@ -112,6 +113,9 @@ func main() {
 	// Initialize Client
 	config.InitClient(cfg)
 
+	// Initialize DB
+	models.ConnectDatabase()
+
 	var w queue.Worker
 	switch core.Queue(cfg.Queue.Engine) {
 	case core.LocalQueue:
@@ -142,25 +146,23 @@ func main() {
 		}
 	})
 
-	defer func() {
-		var g errgroup.Group
-		// Run httpd server
-		g.Go(func() error {
-			return router.RunHTTPServer(ctx, cfg, q)
-		})
+	var g errgroup.Group
+	// Run httpd server
+	g.Go(func() error {
+		return router.RunHTTPServer(ctx, cfg, q)
+	})
 
-		// check job completely
-		g.Go(func() error {
-			select {
-			case <-finished:
-			}
-			return nil
-		})
-
-		if err = g.Wait(); err != nil {
-			logx.LogError.Fatal(err)
+	// check job completely
+	g.Go(func() error {
+		select {
+		case <-finished:
 		}
-	}()
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
+		logx.LogError.Fatal(err)
+	}
 }
 
 // Version control.

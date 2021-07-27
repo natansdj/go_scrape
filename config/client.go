@@ -8,66 +8,65 @@ import (
 )
 
 var (
-	DdcHttpT     *http.Transport
-	DdcNetClient *http.Client
+	ScrHttpT     *http.Transport
+	ScrNetClient *http.Client
 )
 
 func InitClient(cfg ConfYaml) {
-	logx.LogAccess.Info("Init http.Client && http.Transport")
+	defer logx.LogAccess.Info("Init http.Client && http.Transport")
 
 	//Init Config
 	appConf := cfg.Source
 
-	ddcCtxTimeout := appConf.CtxTimeout
-	if ddcCtxTimeout == 0 {
-		ddcCtxTimeout = 30
+	scrCtxTimeout := appConf.CtxTimeout
+	if scrCtxTimeout == 0 {
+		scrCtxTimeout = 30
 	}
-	ddcCtxKeepAlive := appConf.CtxKeepAlive
-	if ddcCtxKeepAlive == 0 {
-		ddcCtxKeepAlive = 100
+	scrCtxKeepAlive := appConf.CtxKeepAlive
+	if scrCtxKeepAlive == 0 {
+		scrCtxKeepAlive = 100
 	}
-	ddcMaxIdleConnsPerHost := appConf.MaxIdleConnsPerHost
-	if ddcMaxIdleConnsPerHost == 0 {
-		ddcMaxIdleConnsPerHost = 100
+	scrMaxIdleConnsPerHost := appConf.MaxIdleConnsPerHost
+	if scrMaxIdleConnsPerHost == 0 {
+		scrMaxIdleConnsPerHost = 100
 	}
-	ddcMaxIdleConns := appConf.MaxIdleConns
-	if ddcMaxIdleConns == 0 {
-		ddcMaxIdleConns = 100
+	scrMaxIdleConns := appConf.MaxIdleConns
+	if scrMaxIdleConns == 0 {
+		scrMaxIdleConns = 100
 	}
-	ddcIdleConnTimeout := appConf.IdleConnTimeout
-	if ddcIdleConnTimeout == 0 {
-		ddcIdleConnTimeout = 90
+	scrIdleConnTimeout := appConf.IdleConnTimeout
+	if scrIdleConnTimeout == 0 {
+		scrIdleConnTimeout = 90
 	}
-	ddcTLSHandshakeTimeout := appConf.TLSHandshakeTimeout
-	if ddcTLSHandshakeTimeout == 0 {
-		ddcTLSHandshakeTimeout = 10
+	scrTLSHandshakeTimeout := appConf.TLSHandshakeTimeout
+	if scrTLSHandshakeTimeout == 0 {
+		scrTLSHandshakeTimeout = 10
 	}
-	ddcExpectContinueTimeout := appConf.ExpectContinueTimeout
-	if ddcExpectContinueTimeout == 0 {
-		ddcExpectContinueTimeout = 3
+	scrExpectContinueTimeout := appConf.ExpectContinueTimeout
+	if scrExpectContinueTimeout == 0 {
+		scrExpectContinueTimeout = 3
 	}
-
-	ddcHttpTimeout := appConf.HttpTimeout
-	if ddcHttpTimeout == 0 {
-		ddcHttpTimeout = 5
+	scrHttpTimeout := appConf.HttpTimeout
+	if scrHttpTimeout == 0 {
+		scrHttpTimeout = 5
 	}
 
 	//Init Transport & HTTP
-	DdcHttpT = &http.Transport{
+	ScrHttpT = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
-			Timeout:   time.Duration(ddcCtxTimeout) * time.Second,
-			KeepAlive: time.Duration(ddcCtxKeepAlive) * time.Second,
+			Timeout:   time.Duration(scrCtxTimeout) * time.Second,
+			KeepAlive: time.Duration(scrCtxKeepAlive) * time.Second,
 		}).DialContext,
-		MaxIdleConnsPerHost:   ddcMaxIdleConnsPerHost,
-		MaxIdleConns:          ddcMaxIdleConns,
-		IdleConnTimeout:       time.Duration(ddcIdleConnTimeout) * time.Second,
-		TLSHandshakeTimeout:   time.Duration(ddcTLSHandshakeTimeout) * time.Second,
-		ExpectContinueTimeout: time.Duration(ddcExpectContinueTimeout) * time.Second,
+		MaxIdleConnsPerHost:   scrMaxIdleConnsPerHost,
+		MaxIdleConns:          scrMaxIdleConns,
+		IdleConnTimeout:       time.Duration(scrIdleConnTimeout) * time.Second,
+		TLSHandshakeTimeout:   time.Duration(scrTLSHandshakeTimeout) * time.Second,
+		ExpectContinueTimeout: time.Duration(scrExpectContinueTimeout) * time.Second,
 	}
 
-	DdcNetClient = &http.Client{
-		Transport: DdcHttpT,
-		Timeout:   time.Duration(ddcHttpTimeout) * time.Second,
+	ScrNetClient = &http.Client{
+		Transport: ScrHttpT,
+		Timeout:   time.Duration(scrHttpTimeout) * time.Second,
 	}
 }

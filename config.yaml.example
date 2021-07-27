@@ -9,7 +9,7 @@ core:
   sync: false # set true if you need get error message from fail push notification in API response.
   feedback_hook_url: "" # set webhook url if you need get error message asynchronously from fail push notification in API response.
   feedback_timeout: 10 # default is 10 second
-  mode: "debug"
+  mode: "release"
   ssl: false
   cert_path: "cert.pem"
   key_path: "key.pem"
@@ -44,6 +44,16 @@ source:
   tls_handshake_timeout: 0
   expect_continue_timeout: 0
   http_timeout: 0
+
+database:
+  db_host: dev_mariadb
+  db_port: 3306
+  db_user: dev
+  db_password: secret
+  db_name: dev_goscrape
+  db_charset:  utf8
+  db_prefix:
+  db_timezone: Asia/Jakarta
 
 queue:
   engine: "local" # support "local", "nsq", default value is "local"
