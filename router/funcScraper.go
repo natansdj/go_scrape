@@ -1,9 +1,11 @@
 package router
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/go-querystring/query"
 	"github.com/natansdj/go_scrape/config"
 	"github.com/natansdj/go_scrape/logx"
 	"github.com/natansdj/go_scrape/models"
@@ -42,10 +44,8 @@ func scrapeFundHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			panic(err)
 		}
 
-		j := NewJSONReader(body)
 		var i gin.H
-		dec := json.NewDecoder(j)
-		err = dec.Decode(&i)
+		err = json.NewDecoder(NewJSONReader(body)).Decode(&i)
 		if err != nil {
 			logx.LogError.Error(err.Error())
 			panic(err.Error())
@@ -165,11 +165,106 @@ func scrapeFundHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			fmt.Println("")
 		}
 
+		urlStr := req.URL.String()
 		c.JSON(http.StatusOK, gin.H{
-			"source":  "https://www.indopremier.com/programer_script/source_json_for_favorite.php?firstopen=yes&aumlowervalue=500&aumlowercheck=yes&aumbetweenlowvalue=500&aumbetweenhighvalue=2000&aumbetweencheck=yes&aumgreatervalue=2000&aumgreatercheck=yes&availibility=available&fundtype=mm,fi,balance,equity,&hiloselect=1yr&performancetype=nav&fundnonsyariah=yes&fundsyariah=yes&etfnonsyariah=yes&etfsyariah=yes",
-			"version": GetVersion(),
+			"source":  urlStr,
 			"baseUri": baseUri,
 			"result":  i,
 		})
 	}
+}
+
+type StCompChart struct {
+	Type      string `form:"type" json:"type" url:"type"`
+	Jenis     string `form:"jenis" json:"jenis" url:"jenis" `
+	FundId    string `form:"fundid" json:"fundid" url:"fundid" `
+	StartDate string `form:"startdate" json:"startdate" url:"startdate"`
+	EndDate   string `form:"enddate" json:"enddate" url:"enddate"`
+}
+
+type RetCompChart struct {
+	All        string `json:"all"`
+	EndData    string `json:"enddata"`
+	OneDay     string `json:"oneday"`
+	OneMonth   string `json:"onemonth"`
+	ThreeMonth string `json:"threemonth"`
+	SixMonth   string `json:"sixmonth"`
+	OneYear    string `json:"oneyear"`
+	ThreeYear  string `json:"threeyear"`
+	Ytd        string `json:"ytd"`
+}
+
+func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var a StCompChart
+		err := c.Bind(&a)
+		if err != nil {
+			logx.LogError.Error(err.Error())
+			panic(err)
+		}
+
+		//Fetch datatanggal
+		if a.Type == "" {
+			a.Type = "getdatatanggal"
+		}
+		if a.Jenis == "" {
+			a.Jenis = "nav"
+		}
+		if a.FundId == "" {
+			a.FundId = "4"
+		}
+		urlValues, _ := query.Values(a)
+
+		req, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
+		body, err := RequestDo(req)
+		if err != nil {
+			logx.LogError.Error(err.Error())
+			panic(err)
+		}
+
+		var i gin.H
+		err = json.NewDecoder(NewJSONReader(body)).Decode(&i)
+
+		//Fetch Nav
+		req2, i2 := ipFetchNav(cfg, a)
+
+		//RESULT
+		c.JSON(http.StatusOK, gin.H{
+			"source1": req.URL.String(),
+			"source2": req2.URL.String(),
+			"baseUri": cfg.Source.BaseURI,
+			"form":    a,
+			"result1": i,
+			"result2": i2,
+		})
+	}
+}
+
+func ipFetchNav(cfg config.ConfYaml, a StCompChart) (*http.Request, interface{}) {
+	//Fetch Nav
+	b := StCompChart{
+		Type:      "popupnav",
+		StartDate: "MjUgTWF5IDIwMDU=",
+		EndDate:   "MTYgSnVsIDIwMjE=",
+		FundId:    a.FundId,
+	}
+
+	urlValues, _ := query.Values(b)
+
+	req2, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
+	body2, err2 := RequestDo(req2)
+	if err2 != nil {
+		logx.LogError.Error(err2.Error())
+		panic(err2)
+	}
+
+	fmt.Println(string(body2))
+
+	var i2 gin.H
+
+	jr := new(JSONReader)
+	jr.Reader = bytes.NewReader(body2)
+	err2 = json.NewDecoder(jr).Decode(&i2)
+
+	return req2, i2
 }

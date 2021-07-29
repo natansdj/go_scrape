@@ -7,6 +7,7 @@ require (
 	github.com/gin-contrib/logger v0.2.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-redis/redis/v7 v7.4.1
+	github.com/google/go-querystring v1.1.0
 	github.com/json-iterator/go v1.1.11
 	github.com/mattn/go-isatty v0.0.12
 	github.com/prometheus/client_golang v1.11.0

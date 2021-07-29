@@ -65,7 +65,7 @@ func versionHandler(c *gin.Context) {
 func debugPushHandler(c *gin.Context) {
 	logx.LogPush(&logx.InputLog{
 		ID:        "",
-		Status:    core.FailedPush,
+		Status:    core.SucceededPush,
 		Token:     "",
 		Message:   "DEBUG",
 		Platform:  0,
@@ -292,6 +292,7 @@ func routerEngine(cfg config.ConfYaml, q *queue.Queue) *gin.Engine {
 	r.GET("/", rootHandler)
 
 	r.GET("/scrape/funds", scrapeFundHandler(cfg))
+	r.GET("/scrape/nav", scrapeNavHandler(cfg))
 
 	return r
 }
