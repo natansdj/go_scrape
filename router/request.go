@@ -3,8 +3,12 @@ package router
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/google/go-querystring/query"
 	"github.com/natansdj/go_scrape/config"
 	"github.com/natansdj/go_scrape/logx"
 	"io"
@@ -47,7 +51,6 @@ func RequestInit(cfg config.ConfYaml, method string, endpoint string, body io.Re
 	req.URL.RawQuery = q.Encode()
 
 	//Add Header
-	req.Header.Add("User-Agent", "Shipper/")
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 
@@ -68,7 +71,8 @@ func RequestDo(req *http.Request, args ...interface{}) (body []byte, err error) 
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	timeout := time.Duration(30) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	res, err := config.ScrNetClient.Do(req.WithContext(ctx))
@@ -86,7 +90,7 @@ func RequestDo(req *http.Request, args ...interface{}) (body []byte, err error) 
 	if req.URL != nil {
 		urlStr = req.URL.String()
 	}
-	logx.LogAccess.Info(fmt.Sprintf("\n URL : %v \n RESP : %v", urlStr, res.Status))
+	logx.LogAccess.Info(fmt.Sprintf("URL : %v \n RESP : %v \n HEADER : %v", urlStr, res.Status, res.Header))
 
 	return body, err
 }
@@ -127,4 +131,75 @@ func (jr *JSONReader) UnmarshalJSON(data []byte) error {
 	data = []byte(strings.Trim(string(data), "\""))
 	jr.Reader = bytes.NewReader(data)
 	return nil
+}
+
+func ipFetchDate(cfg config.ConfYaml, a *StCompChart) (*http.Request, interface{}) {
+	//Fetch Data tanggal
+	if a.Type == "" {
+		a.Type = "getdatatanggal"
+	}
+	if a.Jenis == "" {
+		a.Jenis = "nav"
+	}
+	if a.FundId == "" {
+		a.FundId = ""
+	}
+	urlValues, _ := query.Values(a)
+
+	req, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
+	body, err := RequestDo(req)
+	if err != nil {
+		logx.LogError.Error(err.Error())
+		panic(err)
+	}
+
+	var i gin.H
+	err = json.NewDecoder(NewJSONReader(body)).Decode(&i)
+
+	//get all date
+	all := i["all"]
+	oneday := i["oneday"]
+	fmt.Println(fmt.Sprintf("%T, %v", all, all))
+	fmt.Println(fmt.Sprintf("%T, %v", oneday, oneday))
+
+	if v, ok := i["all"].(string); ok {
+		startdate := base64.URLEncoding.EncodeToString([]byte(v))
+		fmt.Println(startdate)
+		a.StartDate = startdate
+	}
+
+	if v, ok := i["oneday"].(string); ok {
+		enddate := base64.URLEncoding.EncodeToString([]byte(v))
+		fmt.Println(enddate)
+		a.EndDate = enddate
+	}
+
+	return req, i
+}
+
+func ipFetchNav(cfg config.ConfYaml, a *StCompChart) (*http.Request, interface{}) {
+	//Fetch Nav
+	b := StCompChart{
+		Type:      "popupnav",
+		StartDate: a.StartDate,
+		EndDate:   a.EndDate,
+		FundId:    a.FundId,
+	}
+
+	urlValues, _ := query.Values(b)
+
+	req, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
+	body, err := RequestDo(req)
+	if err != nil {
+		logx.LogError.Error(err.Error())
+		panic(err)
+	}
+
+	var i []interface{}
+
+	jr := new(JSONReader)
+	jr.Reader = bytes.NewReader(body)
+	err = json.NewDecoder(jr).Decode(&i)
+
+	return req, i
 }

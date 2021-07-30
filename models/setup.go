@@ -14,6 +14,7 @@ import (
 )
 
 var DB *gorm.DB
+var DBAutoMigrate []interface{}
 
 func ConnectDatabase() {
 	// set default parameters.
@@ -66,7 +67,7 @@ func ConnectDatabase() {
 	}
 
 	// Migrate the schema
-	if err := sqlDB.AutoMigrate(&Manager{}, &Funds{}); err != nil {
+	if err := sqlDB.AutoMigrate(DBAutoMigrate...); err != nil {
 		logx.LogError.Error(err.Error())
 		panic("DB ERR failed to migrate database")
 	} else {

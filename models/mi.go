@@ -15,6 +15,10 @@ type Manager struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+func init() {
+	DBAutoMigrate = append(DBAutoMigrate, &Manager{})
+}
+
 func ManagerCreateIfNotExists(m *Manager) (err error) {
 	if m.MiCode == "" || m.MiName == "" {
 		return errors.New("empty MI Code/Name")

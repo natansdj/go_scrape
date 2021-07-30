@@ -36,6 +36,10 @@ type Funds struct {
 	Type        string  `json:"type"`
 }
 
+func init() {
+	DBAutoMigrate = append(DBAutoMigrate, &Funds{})
+}
+
 func fundCreate(mdl *Funds) error {
 	return DB.Create(mdl).Error
 }

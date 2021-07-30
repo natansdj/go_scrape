@@ -1,17 +1,17 @@
 package router
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/go-querystring/query"
 	"github.com/natansdj/go_scrape/config"
 	"github.com/natansdj/go_scrape/logx"
 	"github.com/natansdj/go_scrape/models"
+	"github.com/natansdj/go_scrape/utils"
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 func scrapeFundHandler(cfg config.ConfYaml) gin.HandlerFunc {
@@ -203,30 +203,62 @@ func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			panic(err)
 		}
 
+		//Request
+		a.FundId = "4"
+
 		//Fetch datatanggal
-		if a.Type == "" {
-			a.Type = "getdatatanggal"
-		}
-		if a.Jenis == "" {
-			a.Jenis = "nav"
-		}
-		if a.FundId == "" {
-			a.FundId = "4"
-		}
-		urlValues, _ := query.Values(a)
-
-		req, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
-		body, err := RequestDo(req)
-		if err != nil {
-			logx.LogError.Error(err.Error())
-			panic(err)
-		}
-
-		var i gin.H
-		err = json.NewDecoder(NewJSONReader(body)).Decode(&i)
+		req, i := ipFetchDate(cfg, &a)
 
 		//Fetch Nav
-		req2, i2 := ipFetchNav(cfg, a)
+		req2, i2 := ipFetchNav(cfg, &a)
+		if v, ok := i2.([]interface{}); ok {
+			if len(v) > 0 {
+				fmt.Println(fmt.Sprintf("%T LEN : %d", v, len(v)))
+				for k := range v {
+					fmt.Println(fmt.Sprintf("%T %f", v[k], v[k]))
+					if w, ok := v[k].([]interface{}); ok {
+						fmt.Println(fmt.Sprintf("%T %f", w[0], w[0]))
+						fmt.Println(fmt.Sprintf("%T %f", w[1], w[1]))
+
+						fundId, _ := strconv.Atoi(a.FundId)
+						ts := w[0].(float64)
+						navValue := w[1].(float64)
+
+						//timestamp int64
+						i, err := utils.StrTo(utils.ToStr(w[0])).Int64()
+						if err != nil {
+							panic(err)
+						}
+						if utils.RecursionCountDigits(int(i)) == 13 {
+							i = i / 1000
+							ts = ts / 1000
+						}
+
+						nav := models.Navs{
+							FundId:    fundId,
+							Date:      time.Unix(i, 0),
+							Timestamp: int(ts),
+							Value:     navValue,
+						}
+						fmt.Println(nav.FundId, nav.Date, nav.Timestamp, nav.Value)
+
+						//Save model
+						//if err := models.NavCreateOrUpdate(&nav); err != nil {
+						//	logx.LogError.Error(err.Error())
+						//}
+					}
+
+					//DEBUG
+					break
+				}
+			}
+		}
+
+		var totalNavs int64
+		if a.FundId != "" {
+			i, _ := utils.StrTo(a.FundId).Int()
+			totalNavs, _ = models.NavGetByFundId(i)
+		}
 
 		//RESULT
 		c.JSON(http.StatusOK, gin.H{
@@ -235,36 +267,7 @@ func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			"baseUri": cfg.Source.BaseURI,
 			"form":    a,
 			"result1": i,
-			"result2": i2,
+			"result2": totalNavs,
 		})
 	}
-}
-
-func ipFetchNav(cfg config.ConfYaml, a StCompChart) (*http.Request, interface{}) {
-	//Fetch Nav
-	b := StCompChart{
-		Type:      "popupnav",
-		StartDate: "MjUgTWF5IDIwMDU=",
-		EndDate:   "MTYgSnVsIDIwMjE=",
-		FundId:    a.FundId,
-	}
-
-	urlValues, _ := query.Values(b)
-
-	req2, _ := RequestInit(cfg, "GET", "comparison_chart_json.php", nil, urlValues)
-	body2, err2 := RequestDo(req2)
-	if err2 != nil {
-		logx.LogError.Error(err2.Error())
-		panic(err2)
-	}
-
-	fmt.Println(string(body2))
-
-	var i2 gin.H
-
-	jr := new(JSONReader)
-	jr.Reader = bytes.NewReader(body2)
-	err2 = json.NewDecoder(jr).Decode(&i2)
-
-	return req2, i2
 }
