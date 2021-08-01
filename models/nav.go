@@ -46,3 +46,10 @@ func NavGetByFundId(fundId int) ([]Navs, error) {
 
 	return navs, result.Error
 }
+
+func NavCountByFundId(fundId int) (int64, error) {
+	var count int64
+	result := DB.Model(&Navs{}).Where("fund_id=?", fundId).Count(&count)
+
+	return count, result.Error
+}

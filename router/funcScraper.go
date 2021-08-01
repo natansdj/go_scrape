@@ -203,7 +203,7 @@ func scrapeFundsHandler() gin.HandlerFunc {
 
 func scrapeNavsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var totalFunds int
+		var totalFunds, totalProcessed int
 		var ids []int
 
 		if f := c.Query("id"); f != "" {
@@ -214,6 +214,12 @@ func scrapeNavsHandler() gin.HandlerFunc {
 				}
 			}
 			logx.LogAccess.Infof("Query Ids : %v", ids)
+		}
+
+		var update int
+		updateQ := c.Query("update")
+		if v, err := strconv.Atoi(updateQ); err == nil {
+			update = v
 		}
 
 		funds, err := models.FundGetAll(ids...)
@@ -228,13 +234,18 @@ func scrapeNavsHandler() gin.HandlerFunc {
 				a.FundId = strconv.Itoa(v.FundId)
 
 				//Process single nav
-				_, _, _, _, _ = processNav(a)
+				_, _, _, _, totalNavs := processNav(a, update)
+
+				if totalNavs > 0 {
+					totalProcessed += 1
+				}
 			}
 		}
 
 		//RESULT
 		c.JSON(http.StatusOK, gin.H{
 			"totalFund": totalFunds,
+			"processed": totalProcessed,
 		})
 	}
 }
@@ -275,7 +286,7 @@ func scrapeNavHandler() gin.HandlerFunc {
 		}
 
 		//Process single nav
-		req, i, req2, _, totalNavs := processNav(a)
+		req, i, req2, _, totalNavs := processNav(a, 1)
 
 		//RESULT
 		c.JSON(http.StatusOK, gin.H{
@@ -289,7 +300,15 @@ func scrapeNavHandler() gin.HandlerFunc {
 	}
 }
 
-func processNav(a StCompChart) (req *http.Request, i map[string]interface{}, req2 *http.Request, i2 interface{}, totalNavs int) {
+func processNav(a StCompChart, update int) (req *http.Request, i map[string]interface{}, req2 *http.Request, i2 interface{}, totalNavs int64) {
+	//Check current record
+	fId, _ := strconv.Atoi(a.FundId)
+	currCount, err := models.NavCountByFundId(fId)
+	if err == nil {
+		fmt.Println(currCount)
+	}
+
+	//Start
 	cfg := models.CFG
 	req, i = ipFetchDate(cfg, &a)
 	logx.LogAccess.Infof("StartDate : %v encoded : %v EndDate : %v encoded : %v", i["all"], a.StartDate, i["oneday"], a.EndDate)
@@ -298,8 +317,19 @@ func processNav(a StCompChart) (req *http.Request, i map[string]interface{}, req
 	req2, i2 = ipFetchNav(cfg, &a)
 	if v, ok := i2.([]interface{}); ok {
 		if len(v) > 0 {
+			if update == 1 && currCount > 0 {
+				if int(currCount) == len(v) {
+					logx.LogAccess.Infof("SKIPPED...")
+					return &http.Request{}, nil, &http.Request{}, nil, currCount
+				} else {
+					logx.LogAccess.Infof("UPDATING....", currCount, len(v))
+				}
+			} else {
+				logx.LogAccess.Infof("INSERT OR UPDATE...")
+			}
+
 			var wg sync.WaitGroup
-			totalNavs = len(v)
+			totalNavs = int64(len(v))
 
 			//Divide slice into equal parts
 			middleIdx := math.Ceil(float64(totalNavs) / GoProcessCount)
@@ -352,7 +382,8 @@ func insertNavIntoDb(a StCompChart, v []interface{}, wg *sync.WaitGroup) {
 			if err != nil {
 				panic(err)
 			}
-			if utils.RecursionCountDigits(int(i)) == 13 {
+			//Get seconds from millisecond
+			if utils.RecursionCountDigits(int(i)) <= 13 {
 				i = i / 1000
 				ts = ts / 1000
 			}
