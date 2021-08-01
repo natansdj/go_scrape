@@ -35,7 +35,7 @@ func RunHTTPServer(ctx context.Context, cfg config.ConfYaml, q *queue.Queue, s .
 		server = s[0]
 	}
 
-	defer logx.LogAccess.Info("HTTPD server is running on " + cfg.Core.Port + " port.")
+	defer logx.LogAccess.Infof("HTTPD server is running on %v port.", cfg.Core.Port)
 	if cfg.Core.AutoTLS.Enabled {
 		return startServer(ctx, autoTLSServer(cfg, q), cfg)
 	} else if cfg.Core.SSL {

@@ -140,9 +140,9 @@ func main() {
 		//q.Wait()
 		close(finished)
 		// close the connection with storage
-		logx.LogAccess.Info("close the storage connection: ", cfg.Stat.Engine)
+		logx.LogAccess.Infof("close the storage connection: %v", cfg.Stat.Engine)
 		if err := status.StatStorage.Close(); err != nil {
-			logx.LogError.Fatal("can't close the storage connection: ", err.Error())
+			logx.LogError.Fatalf("can't close the storage connection: %v", err.Error())
 		}
 	})
 

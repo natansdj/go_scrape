@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,7 +40,7 @@ type RetCompChart struct {
 	Ytd        string `json:"ytd"`
 }
 
-func scrapeFundHandler() gin.HandlerFunc {
+func scrapeFundsHandler() gin.HandlerFunc {
 	cfg := models.CFG
 	return func(c *gin.Context) {
 
@@ -76,17 +77,17 @@ func scrapeFundHandler() gin.HandlerFunc {
 			logx.LogError.Error(err.Error())
 			panic(err.Error())
 		} else {
-			logx.LogAccess.Info(fmt.Sprintf("\nType : %T", i["aaData"]))
+			logx.LogAccess.Infof("\nType : %T", i["aaData"])
 
 			//list of funds
 			if aaData, ok := i["aaData"].([]interface{}); ok {
-				logx.LogAccess.Info(fmt.Sprintf("Len : %v", len(aaData)))
+				logx.LogAccess.Infof("Len : %v", len(aaData))
 
 				//Process each fund
 				var funds []models.Funds
 				var managers []models.Manager
 				for k, aDtRaw := range aaData {
-					logx.LogAccess.Info(fmt.Sprintf("FUND : %v, %T", aaData[k], aaData[k]))
+					logx.LogAccess.Infof("FUND : %v, %T", aaData[k], aaData[k])
 					if aDtVal, ok2 := aDtRaw.([]interface{}); ok2 {
 						var f models.Funds
 
@@ -200,6 +201,44 @@ func scrapeFundHandler() gin.HandlerFunc {
 	}
 }
 
+func scrapeNavsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var totalFunds int
+		var ids []int
+
+		if f := c.Query("id"); f != "" {
+			fsplit := strings.Split(f, ",")
+			for k := range fsplit {
+				if id, err := strconv.Atoi(fsplit[k]); err == nil {
+					ids = append(ids, id)
+				}
+			}
+			logx.LogAccess.Infof("Query Ids : %v", ids)
+		}
+
+		funds, err := models.FundGetAll(ids...)
+		if err == nil {
+			totalFunds = len(funds)
+			logx.LogAccess.Infof("TOTAL : %v", len(funds))
+			for _, v := range funds {
+				fmt.Println()
+				logx.LogAccess.Infof("FUNDID : %v FundName : %v", v.FundId, v.FundName)
+
+				var a StCompChart
+				a.FundId = strconv.Itoa(v.FundId)
+
+				//Process single nav
+				_, _, _, _, _ = processNav(a)
+			}
+		}
+
+		//RESULT
+		c.JSON(http.StatusOK, gin.H{
+			"totalFund": totalFunds,
+		})
+	}
+}
+
 func scrapeNavHandler() gin.HandlerFunc {
 	cfg := models.CFG
 	return func(c *gin.Context) {
@@ -235,46 +274,8 @@ func scrapeNavHandler() gin.HandlerFunc {
 			}
 		}
 
-		//Fetch datatanggal
-		req, i := ipFetchDate(cfg, &a)
-
-		logx.LogAccess.Info(fmt.Sprintf("StartDate : %v encoded : %v EndDate : %v encoded : %v", i["all"], a.StartDate, i["oneday"], a.EndDate))
-
-		//Fetch Nav
-		var totalNavs int
-		req2, i2 := ipFetchNav(cfg, &a)
-		if v, ok := i2.([]interface{}); ok {
-			if len(v) > 0 {
-				var wg sync.WaitGroup
-				totalNavs = len(v)
-
-				//Divide slice into equal parts
-				middleIdx := math.Ceil(float64(totalNavs) / GoProcessCount)
-				divided := utils.Chunks(v, int(middleIdx))
-
-				//disable db debug log
-				models.DbDebugUnset()
-
-				//wait group
-				start := time.Now()
-				wg.Add(len(divided))
-
-				//Process each divided parts
-				for _, w := range divided {
-					go processNav(a, w, &wg)
-				}
-
-				//Wait
-				wg.Wait()
-
-				//INFO
-				logx.LogAccess.Info(fmt.Sprintf("FundId : %v, LEN : %d, MID : %v, Type : %T, Process Time : %s", a.FundId, len(v), middleIdx, v, time.Since(start)))
-				fmt.Println()
-
-				//re-enable db debug log
-				models.DbDebugSet()
-			}
-		}
+		//Process single nav
+		req, i, req2, _, totalNavs := processNav(a)
 
 		//RESULT
 		c.JSON(http.StatusOK, gin.H{
@@ -288,7 +289,50 @@ func scrapeNavHandler() gin.HandlerFunc {
 	}
 }
 
-func processNav(a StCompChart, v []interface{}, wg *sync.WaitGroup) {
+func processNav(a StCompChart) (req *http.Request, i map[string]interface{}, req2 *http.Request, i2 interface{}, totalNavs int) {
+	cfg := models.CFG
+	req, i = ipFetchDate(cfg, &a)
+	logx.LogAccess.Infof("StartDate : %v encoded : %v EndDate : %v encoded : %v", i["all"], a.StartDate, i["oneday"], a.EndDate)
+
+	//Fetch Nav
+	req2, i2 = ipFetchNav(cfg, &a)
+	if v, ok := i2.([]interface{}); ok {
+		if len(v) > 0 {
+			var wg sync.WaitGroup
+			totalNavs = len(v)
+
+			//Divide slice into equal parts
+			middleIdx := math.Ceil(float64(totalNavs) / GoProcessCount)
+			divided := utils.Chunks(v, int(middleIdx))
+
+			//disable db debug log
+			models.DbDebugUnset()
+
+			//wait group
+			start := time.Now()
+			wg.Add(len(divided))
+
+			//Process each divided parts
+			for _, w := range divided {
+				go insertNavIntoDb(a, w, &wg)
+			}
+
+			//Wait
+			wg.Wait()
+
+			//INFO
+			logx.LogAccess.Infof("FundId : %v, LEN : %d, MID : %v, Type : %T, Process Time : %s", a.FundId, len(v), middleIdx, v, time.Since(start))
+			fmt.Println()
+
+			//re-enable db debug log
+			models.DbDebugSet()
+		}
+	}
+
+	return req, i, req2, i2, totalNavs
+}
+
+func insertNavIntoDb(a StCompChart, v []interface{}, wg *sync.WaitGroup) {
 	//start := time.Now()
 	//defer fmt.Println(fmt.Sprintf("Process Time : %s", time.Since(start)))
 	defer wg.Done()

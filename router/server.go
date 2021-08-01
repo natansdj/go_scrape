@@ -293,7 +293,8 @@ func routerEngine(cfg config.ConfYaml, q *queue.Queue) *gin.Engine {
 	r.GET("/version", versionHandler)
 	r.GET("/", rootHandler)
 
-	r.GET("/scrape/funds", scrapeFundHandler())
+	r.GET("/scrape/funds", scrapeFundsHandler())
+	r.GET("/scrape/nav", scrapeNavsHandler())
 	r.GET("/scrape/nav/:id", scrapeNavHandler())
 
 	return r

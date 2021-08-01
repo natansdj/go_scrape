@@ -51,6 +51,20 @@ func FundGetById(fundId int) (*Funds, error) {
 	}
 }
 
+func FundGetAll(args ...int) ([]*Funds, error) {
+	var m []*Funds
+	DB.Where("fund_name != ''")
+
+	var result *gorm.DB
+	if len(args) >= 1 {
+		result = DB.Where("fund_id IN ?", args).Find(&m)
+	} else {
+		result = DB.Find(&m)
+	}
+
+	return m, result.Error
+}
+
 func fundCreate(mdl *Funds) error {
 	return DB.Create(mdl).Error
 }

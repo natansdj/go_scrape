@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-querystring/query"
 	"github.com/natansdj/go_scrape/config"
@@ -90,8 +89,8 @@ func RequestDo(req *http.Request, args ...interface{}) (body []byte, err error) 
 	if req.URL != nil {
 		urlStr = req.URL.String()
 	}
-	logx.LogAccess.Info(fmt.Sprintf("URL : %v RESP : %v \n", urlStr, res.Status))
-	//logx.LogAccess.Info(fmt.Sprintf("URL : %v \n RESP : %v \n HEADER : %v", urlStr, res.Status, res.Header))
+	logx.LogAccess.Infof("URL : %v RESP : %v \n", urlStr, res.Status)
+	//logx.LogAccess.Infof("URL : %v \n RESP : %v \n HEADER : %v", urlStr, res.Status, res.Header)
 
 	return body, err
 }

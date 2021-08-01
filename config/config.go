@@ -158,7 +158,7 @@ func LoadConf(confPath ...string) (ConfYaml, error) {
 
 		// If a config file is found, read it in.
 		if err := viper.ReadInConfig(); err == nil {
-			defer logx.LogAccess.Info("Using config file:", viper.ConfigFileUsed())
+			defer logx.LogAccess.Infof("Using config file: %s", viper.ConfigFileUsed())
 		} else {
 			errMsg := "config file not found! "
 			logx.LogError.Fatal(errMsg)
