@@ -90,7 +90,8 @@ func RequestDo(req *http.Request, args ...interface{}) (body []byte, err error) 
 	if req.URL != nil {
 		urlStr = req.URL.String()
 	}
-	logx.LogAccess.Info(fmt.Sprintf("URL : %v \n RESP : %v \n HEADER : %v", urlStr, res.Status, res.Header))
+	logx.LogAccess.Info(fmt.Sprintf("URL : %v RESP : %v \n", urlStr, res.Status))
+	//logx.LogAccess.Info(fmt.Sprintf("URL : %v \n RESP : %v \n HEADER : %v", urlStr, res.Status, res.Header))
 
 	return body, err
 }
@@ -133,7 +134,7 @@ func (jr *JSONReader) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func ipFetchDate(cfg config.ConfYaml, a *StCompChart) (*http.Request, interface{}) {
+func ipFetchDate(cfg config.ConfYaml, a *StCompChart) (*http.Request, map[string]interface{}) {
 	//Fetch Data tanggal
 	if a.Type == "" {
 		a.Type = "getdatatanggal"
@@ -157,20 +158,13 @@ func ipFetchDate(cfg config.ConfYaml, a *StCompChart) (*http.Request, interface{
 	err = json.NewDecoder(NewJSONReader(body)).Decode(&i)
 
 	//get all date
-	all := i["all"]
-	oneday := i["oneday"]
-	fmt.Println(fmt.Sprintf("%T, %v", all, all))
-	fmt.Println(fmt.Sprintf("%T, %v", oneday, oneday))
-
 	if v, ok := i["all"].(string); ok {
 		startdate := base64.URLEncoding.EncodeToString([]byte(v))
-		fmt.Println(startdate)
 		a.StartDate = startdate
 	}
 
 	if v, ok := i["oneday"].(string); ok {
 		enddate := base64.URLEncoding.EncodeToString([]byte(v))
-		fmt.Println(enddate)
 		a.EndDate = enddate
 	}
 

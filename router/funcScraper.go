@@ -4,17 +4,43 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/natansdj/go_scrape/config"
 	"github.com/natansdj/go_scrape/logx"
 	"github.com/natansdj/go_scrape/models"
 	"github.com/natansdj/go_scrape/utils"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 )
 
-func scrapeFundHandler(cfg config.ConfYaml) gin.HandlerFunc {
+const (
+	GoProcessCount = 3
+)
+
+type StCompChart struct {
+	Type      string `form:"type" json:"type" url:"type"`
+	Jenis     string `form:"jenis" json:"jenis" url:"jenis" `
+	FundId    string `form:"fundid" json:"fundid" url:"fundid" `
+	StartDate string `form:"startdate" json:"startdate" url:"startdate"`
+	EndDate   string `form:"enddate" json:"enddate" url:"enddate"`
+}
+
+type RetCompChart struct {
+	All        string `json:"all"`
+	EndData    string `json:"enddata"`
+	OneDay     string `json:"oneday"`
+	OneMonth   string `json:"onemonth"`
+	ThreeMonth string `json:"threemonth"`
+	SixMonth   string `json:"sixmonth"`
+	OneYear    string `json:"oneyear"`
+	ThreeYear  string `json:"threeyear"`
+	Ytd        string `json:"ytd"`
+}
+
+func scrapeFundHandler() gin.HandlerFunc {
+	cfg := models.CFG
 	return func(c *gin.Context) {
 
 		baseUri := cfg.Source.BaseURI
@@ -174,27 +200,8 @@ func scrapeFundHandler(cfg config.ConfYaml) gin.HandlerFunc {
 	}
 }
 
-type StCompChart struct {
-	Type      string `form:"type" json:"type" url:"type"`
-	Jenis     string `form:"jenis" json:"jenis" url:"jenis" `
-	FundId    string `form:"fundid" json:"fundid" url:"fundid" `
-	StartDate string `form:"startdate" json:"startdate" url:"startdate"`
-	EndDate   string `form:"enddate" json:"enddate" url:"enddate"`
-}
-
-type RetCompChart struct {
-	All        string `json:"all"`
-	EndData    string `json:"enddata"`
-	OneDay     string `json:"oneday"`
-	OneMonth   string `json:"onemonth"`
-	ThreeMonth string `json:"threemonth"`
-	SixMonth   string `json:"sixmonth"`
-	OneYear    string `json:"oneyear"`
-	ThreeYear  string `json:"threeyear"`
-	Ytd        string `json:"ytd"`
-}
-
-func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
+func scrapeNavHandler() gin.HandlerFunc {
+	cfg := models.CFG
 	return func(c *gin.Context) {
 		var a StCompChart
 		err := c.Bind(&a)
@@ -203,61 +210,70 @@ func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			panic(err)
 		}
 
-		//Request
-		a.FundId = "4"
+		fundId := c.Param("id")
+		if fundId != "" {
+			logx.LogAccess.Debug("fundId : " + fundId)
+			a.FundId = fundId
+		}
+
+		//Validate
+		if a.FundId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		fId, err2 := strconv.Atoi(a.FundId)
+		if err2 == nil {
+			f, err := models.FundGetById(fId)
+			if err != nil || f == nil {
+				errMsg := "fund not found"
+				if err != nil {
+					errMsg = err.Error()
+				}
+				c.JSON(http.StatusNotFound, gin.H{"error": errMsg})
+				return
+			}
+		}
 
 		//Fetch datatanggal
 		req, i := ipFetchDate(cfg, &a)
 
+		logx.LogAccess.Info(fmt.Sprintf("StartDate : %v encoded : %v EndDate : %v encoded : %v", i["all"], a.StartDate, i["oneday"], a.EndDate))
+
 		//Fetch Nav
+		var totalNavs int
 		req2, i2 := ipFetchNav(cfg, &a)
 		if v, ok := i2.([]interface{}); ok {
 			if len(v) > 0 {
-				fmt.Println(fmt.Sprintf("%T LEN : %d", v, len(v)))
-				for k := range v {
-					fmt.Println(fmt.Sprintf("%T %f", v[k], v[k]))
-					if w, ok := v[k].([]interface{}); ok {
-						fmt.Println(fmt.Sprintf("%T %f", w[0], w[0]))
-						fmt.Println(fmt.Sprintf("%T %f", w[1], w[1]))
+				var wg sync.WaitGroup
+				totalNavs = len(v)
 
-						fundId, _ := strconv.Atoi(a.FundId)
-						ts := w[0].(float64)
-						navValue := w[1].(float64)
+				//Divide slice into equal parts
+				middleIdx := math.Ceil(float64(totalNavs) / GoProcessCount)
+				divided := utils.Chunks(v, int(middleIdx))
 
-						//timestamp int64
-						i, err := utils.StrTo(utils.ToStr(w[0])).Int64()
-						if err != nil {
-							panic(err)
-						}
-						if utils.RecursionCountDigits(int(i)) == 13 {
-							i = i / 1000
-							ts = ts / 1000
-						}
+				//disable db debug log
+				models.DbDebugUnset()
 
-						nav := models.Navs{
-							FundId:    fundId,
-							Date:      time.Unix(i, 0),
-							Timestamp: int(ts),
-							Value:     navValue,
-						}
-						fmt.Println(nav.FundId, nav.Date, nav.Timestamp, nav.Value)
+				//wait group
+				start := time.Now()
+				wg.Add(len(divided))
 
-						//Save model
-						//if err := models.NavCreateOrUpdate(&nav); err != nil {
-						//	logx.LogError.Error(err.Error())
-						//}
-					}
-
-					//DEBUG
-					break
+				//Process each divided parts
+				for _, w := range divided {
+					go processNav(a, w, &wg)
 				}
-			}
-		}
 
-		var totalNavs int64
-		if a.FundId != "" {
-			i, _ := utils.StrTo(a.FundId).Int()
-			totalNavs, _ = models.NavGetByFundId(i)
+				//Wait
+				wg.Wait()
+
+				//INFO
+				logx.LogAccess.Info(fmt.Sprintf("FundId : %v, LEN : %d, MID : %v, Type : %T, Process Time : %s", a.FundId, len(v), middleIdx, v, time.Since(start)))
+				fmt.Println()
+
+				//re-enable db debug log
+				models.DbDebugSet()
+			}
 		}
 
 		//RESULT
@@ -269,5 +285,45 @@ func scrapeNavHandler(cfg config.ConfYaml) gin.HandlerFunc {
 			"result1": i,
 			"result2": totalNavs,
 		})
+	}
+}
+
+func processNav(a StCompChart, v []interface{}, wg *sync.WaitGroup) {
+	//start := time.Now()
+	//defer fmt.Println(fmt.Sprintf("Process Time : %s", time.Since(start)))
+	defer wg.Done()
+
+	for k := range v {
+		//fmt.Println(fmt.Sprintf("%T %f", v[k], v[k]))
+		if w, ok := v[k].([]interface{}); ok {
+			//fmt.Println(fmt.Sprintf("%T %f", w[0], w[0]))
+			//fmt.Println(fmt.Sprintf("%T %f", w[1], w[1]))
+
+			fundId, _ := strconv.Atoi(a.FundId)
+			ts := w[0].(float64)
+			navValue := w[1].(float64)
+
+			//timestamp int64
+			i, err := utils.StrTo(utils.ToStr(w[0])).Int64()
+			if err != nil {
+				panic(err)
+			}
+			if utils.RecursionCountDigits(int(i)) == 13 {
+				i = i / 1000
+				ts = ts / 1000
+			}
+
+			nav := models.Navs{
+				FundId:    fundId,
+				Date:      time.Unix(i, 0),
+				Timestamp: int(ts),
+				Value:     navValue,
+			}
+
+			//Save model
+			if err := models.NavCreateOrUpdate(&nav); err != nil {
+				logx.LogError.Error(err.Error())
+			}
+		}
 	}
 }

@@ -40,9 +40,9 @@ func NavCreateOrUpdate(mdl *Navs) error {
 	}
 }
 
-func NavGetByFundId(fundId int) (int64, error) {
+func NavGetByFundId(fundId int) (int, error) {
 	var navs []Navs
 	result := DB.Where("fund_id=?", fundId).Find(&navs)
 
-	return result.RowsAffected, result.Error
+	return int(result.RowsAffected), result.Error
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"github.com/natansdj/go_scrape/metric"
+	"github.com/natansdj/go_scrape/models"
 	"github.com/natansdj/go_scrape/status"
 	"net/http"
 	"os"
@@ -78,7 +79,8 @@ func debugPushHandler(c *gin.Context) {
 	})
 }
 
-func pushHandler(cfg config.ConfYaml, q *queue.Queue) gin.HandlerFunc {
+func pushHandler(q *queue.Queue) gin.HandlerFunc {
+	cfg := models.CFG
 	return func(c *gin.Context) {
 		var form go_scrape.RequestPush
 		var msg string
@@ -121,9 +123,9 @@ func pushHandler(cfg config.ConfYaml, q *queue.Queue) gin.HandlerFunc {
 	}
 }
 
-func configHandler(cfg config.ConfYaml) gin.HandlerFunc {
+func configHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.YAML(http.StatusCreated, cfg)
+		c.YAML(http.StatusCreated, models.CFG)
 	}
 }
 
@@ -280,9 +282,9 @@ func routerEngine(cfg config.ConfYaml, q *queue.Queue) *gin.Engine {
 
 	r.GET(cfg.API.StatGoURI, api.GinHandler)
 	r.GET(cfg.API.StatAppURI, appStatusHandler(q))
-	r.GET(cfg.API.ConfigURI, configHandler(cfg))
+	r.GET(cfg.API.ConfigURI, configHandler())
 	r.GET(cfg.API.SysStatURI, sysStatsHandler())
-	r.POST(cfg.API.PushURI, pushHandler(cfg, q))
+	r.POST(cfg.API.PushURI, pushHandler(q))
 	r.GET(cfg.API.MetricURI, metricsHandler)
 	r.GET(cfg.API.HealthURI, heartbeatHandler)
 	r.HEAD(cfg.API.HealthURI, heartbeatHandler)
@@ -291,8 +293,8 @@ func routerEngine(cfg config.ConfYaml, q *queue.Queue) *gin.Engine {
 	r.GET("/version", versionHandler)
 	r.GET("/", rootHandler)
 
-	r.GET("/scrape/funds", scrapeFundHandler(cfg))
-	r.GET("/scrape/nav", scrapeNavHandler(cfg))
+	r.GET("/scrape/funds", scrapeFundHandler())
+	r.GET("/scrape/nav/:id", scrapeNavHandler())
 
 	return r
 }

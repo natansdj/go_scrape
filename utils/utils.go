@@ -308,3 +308,22 @@ func indirectType(v reflect.Type) reflect.Type {
 		return v
 	}
 }
+
+
+func Chunks(xs []interface{}, chunkSize int) [][]interface{} {
+	if len(xs) == 0 {
+		return nil
+	}
+	divided := make([][]interface{}, (len(xs)+chunkSize-1)/chunkSize)
+	prev := 0
+	i := 0
+	till := len(xs) - chunkSize
+	for prev < till {
+		next := prev + chunkSize
+		divided[i] = xs[prev:next]
+		prev = next
+		i++
+	}
+	divided[i] = xs[prev:]
+	return divided
+}

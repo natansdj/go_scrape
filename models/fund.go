@@ -40,6 +40,17 @@ func init() {
 	DBAutoMigrate = append(DBAutoMigrate, &Funds{})
 }
 
+func FundGetById(fundId int) (*Funds, error) {
+	var m Funds
+	result := DB.Where("id=?", fundId).Find(&m)
+
+	if result.Error == nil && result.RowsAffected != 0 {
+		return &m, nil
+	} else {
+		return nil, result.Error
+	}
+}
+
 func fundCreate(mdl *Funds) error {
 	return DB.Create(mdl).Error
 }

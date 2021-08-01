@@ -15,6 +15,23 @@ import (
 
 var DB *gorm.DB
 var DBAutoMigrate []interface{}
+var CFG config.ConfYaml
+
+func DbDebugSet() {
+	if CFG.Core.Mode == "debug" {
+		DB = DB.Session(&gorm.Session{
+			Logger: DB.Logger.LogMode(gormLogger.Info),
+		})
+	}
+}
+
+func DbDebugUnset() {
+	if CFG.Core.Mode == "debug" {
+		DB = DB.Session(&gorm.Session{
+			Logger: DB.Logger.LogMode(gormLogger.Warn),
+		})
+	}
+}
 
 func ConnectDatabase() {
 	// set default parameters.
@@ -46,9 +63,9 @@ func ConnectDatabase() {
 		LogLevel:      gormLogger.Warn,
 		Colorful:      true,
 	})
-	if cfg.Core.Mode == "debug" {
-		dbLogger = dbLogger.LogMode(gormLogger.Info)
-	}
+	//if cfg.Core.Mode == "debug" {
+	//	dbLogger = dbLogger.LogMode(gormLogger.Info)
+	//}
 
 	//GORM Connection
 	sqlDB, err := gorm.Open(mysql.New(mysql.Config{
@@ -81,4 +98,5 @@ func ConnectDatabase() {
 	}
 
 	DB = sqlDB
+	CFG = cfg
 }
